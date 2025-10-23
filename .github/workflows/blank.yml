@@ -1,0 +1,64 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache build files
+        uses: actions/cache@v3
+        with:
+          path: |
+            **/*.o
+            sokoban
+          key: ${{ runner.os }}-sokoban-${{ hashFiles('**/*.c') }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libncurses-dev build-essential
+
+      - name: Clean previous build
+        run: |
+          if [ -f ./sokoban ]; then
+            make fclean
+          fi
+
+      - name: Build project
+        run: make
+
+      - name: Test binary
+        run: |
+          if [ -f ./sokoban ]; then
+            ./sokoban --help || true
+          else
+            echo "Erreur : binaire non généré"
+            exit 1
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sokoban-binary
+          path: ./sokoban
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: Latest Build
+          draft: false
+          prerelease: false
+          files: ./sokoban
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
